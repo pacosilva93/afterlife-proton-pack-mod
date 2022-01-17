@@ -1,0 +1,86 @@
+// NeoPixel Ring simple sketch (c) 2013 Shae Erisson
+// Released under the GPLv3 license to match the rest of the
+// Adafruit NeoPixel library
+
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+ #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
+
+
+
+#include "afterlife_cyclotron.h"
+
+#define PIN 4           // Which pin on the Arduino is connected to the NeoPixels?
+#define HEAT_PIN  9     // Which pin on the Arduino is connected to the "overheat" signal?
+#define NUMPIXELS 45    // How many NeoPixels are attached to the Arduino?
+#define BRIGHTNESS 255  // How bright should the pixels be? (min = 0, max = 255)
+#define GROUP 2         // How big of a group of pixels do you want to rotate?
+#define INIT_SPD  255   // How slow do you want the animation to rotate at the beginning of the boot? (higher = slower, 255 max)
+#define IDLE_SPD  1    // How fast do you want the animation to rotate during "normal" operation (lower = faster, 0 min)
+#define HEAT_SPD 5      // How fast do you want the animation to rotate at overheat? (lower = faster, 0 min)
+#define BOOT_DLY  5000  // How long do you want the boot animation to last?
+#define HEAT_DLY  5000  // How long should the "overheat" ramp up last?
+
+// Create a new cyclotron object
+Cyclotron cyclotron(PIN, NUMPIXELS, GROUP, INIT_SPD);
+
+// Which pin on the Arduino is connected to the NeoPixels?
+#define PIN        3 // On Trinket or Gemma, suggest changing this to 1
+
+// How many NeoPixels are attached to the Arduino?
+#define NUMPIXELS 16 // Popular NeoPixel ring size
+
+// When setting up the NeoPixel library, we tell it how many pixels,
+// and which pin to use to send signals. Note that for older NeoPixel
+// strips you might need to change the third parameter -- see the
+// strandtest example for more information on possible values.
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+#define DELAYVAL 70 // Time (in milliseconds) to pause between pixels
+
+void setup() {
+  // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
+  // Any other board, you can remove this part (but no harm leaving it):
+#if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
+  clock_prescale_set(clock_div_1);
+#endif
+  // END of Trinket-specific code.
+
+  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
+   //Setup and start the cyclotron
+  cyclotron.setBrightness(0, 0);
+  cyclotron.start();   
+  cyclotron.setSpeed(IDLE_SPD, BOOT_DLY);
+  cyclotron.setBrightness(BRIGHTNESS, BOOT_DLY);
+
+  //Set "overheat" signal pin as an input
+  pinMode(HEAT_PIN, INPUT_PULLUP);
+}
+
+void loop() {
+  pixels.clear(); // Set all pixel colors to 'off'
+
+  // The first NeoPixel in a strand is #0, second is 1, all the way up
+  // to the count of pixels minus one.
+  for(int i=0; i<NUMPIXELS; i++) { // For each pixel...
+
+    // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
+    // Here we're using a moderately bright green color:
+    pixels.setPixelColor(i, pixels.Color(0, 0, 255));
+
+    pixels.show();   // Send the updated pixel colors to the hardware.
+
+    delay(DELAYVAL); // Pause before next pass through loop
+
+#define DELAYVAL 100 // Time (in milliseconds) to pause between pixels
+
+    //Update the cyclotron (should be called as frequently as possible)
+  cyclotron.update();
+
+  //Delete the "!" below if you want to invert the overheat signal for your board
+  //This signal isn't debounced, so it may be wonky with noisy signals
+  if(!digitalRead(HEAT_PIN)) cyclotron.setSpeed(IDLE_SPD, BOOT_DLY);
+  else cyclotron.setSpeed(HEAT_SPD, HEAT_DLY);
+  }
+}
